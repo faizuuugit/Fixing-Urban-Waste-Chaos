@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CleanRoute Demo</title>
+  <style>
+    body { font-family: sans-serif; background: #f4f4f4; padding: 2rem; }
+    h1, h2 { color: #2b7a78; }
+    .bin { background: white; padding: 1rem; margin: 1rem 0; border-left: 8px solid #3aafa9; }
+    .collected { opacity: 0.5; border-left-color: #aaa; }
+    .btn {
+      background: #3aafa9; color: white; padding: 10px 16px;
+      text-decoration: none; border-radius: 5px; border: none;
+    }
+    .btn:hover { background: #2b7a78; }
+    .center { text-align: center; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+
+<h1>🚛 CleanRoute AI – Demo Mode</h1>
+<h3>Truck Capacity: {{ capacity }}L</h3>
+
+<h2>🛑 Today's Route Plan</h2>
+{% for bin in bins %}
+<div class="bin {% if bin.collected %}collected{% endif %}">
+  <strong>{{ bin['Bin ID'] }}</strong><br>
+  Type: {{ bin['Waste Type'] }}<br>
+  Fill: {{ bin['Fill Level'] }}% of {{ bin['Bin Capacity'] }}L = {{ bin['Volume'] }}L<br>
+  Urgency: {{ bin['Urgency Score'] }}<br>
+</div>
+{% endfor %}
+
+<div class="center">
+  <form method="POST">
+    <button class="btn" type="submit">📄 Click here to generate report</button>
+  </form>
+</div>
+
+{% if report %}
+<hr>
+<h2>📄 AI Summary Report</h2>
+<p>{{ report }}</p>
+{% endif %}
+
+</body>
+</html>

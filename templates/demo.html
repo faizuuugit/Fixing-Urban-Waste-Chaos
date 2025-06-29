@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CleanRoute AI – Animated Demo</title>
+  <style>
+    body { font-family: sans-serif; background: #eef2f3; padding: 2rem; }
+    h1 { color: #2b7a78; }
+    .bin-list, .track { display: flex; gap: 1rem; margin: 2rem 0; }
+    .bin-box {
+      background: white; border: 1px solid #ccc;
+      padding: 1rem; width: 180px; border-radius: 8px;
+    }
+    .stop {
+      padding: 1rem; border-radius: 50%;
+      background: #3aafa9; color: white; font-weight: bold;
+      text-align: center; min-width: 50px;
+    }
+    #truck {
+      font-size: 2rem; margin-top: 1rem;
+      transition: margin-left 0.6s ease;
+    }
+    .dialogue {
+      background: white; border: 1px solid #aaa;
+      padding: 1rem; margin-top: 1rem;
+      display: none; position: absolute;
+      left: 60%; top: 200px; width: 300px;
+      border-radius: 10px;
+    }
+    .skeleton {
+      height: 80px;
+      background: linear-gradient(-90deg, #eee 0%, #a5a4a4 50%, #5e5d5d 100%);
+      background-size: 400% 400%;
+      animation: shimmer 1.2s ease-in-out infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚛 CleanRoute AI – Live Demo</h1>
+  <h3>Truck Capacity: {{ capacity }}L</h3>
+
+  <h2>🗂️ All Bins (Simulated)</h2>
+  <div class="bin-list">
+    {% for bin in all_bins %}
+    <div class="bin-box">
+      <strong>{{ bin['Location Name'] }}</strong><br>
+      Type: {{ bin['Waste Type'] }}<br>
+      Fill: {{ bin['Fill Level'] }}% of {{ bin['Bin Capacity'] }}L<br>
+      Urgency: {{ bin['Urgency Score'] }}<br>
+      Volume: {{ bin['Volume'] }}L
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2>🗺️ AI-Planned Route</h2>
+  <div class="track" id="route">
+    {% for bin in route_bins %}
+      <div class="stop" data-id="{{ loop.index0 }}"
+           data-name="{{ bin['Location Name'] }}"
+           data-waste="{{ bin['Waste Type'] }}"
+           data-urgency="{{ bin['Urgency Score'] }}"
+           data-volume="{{ bin['Volume'] }}">
+        {{ loop.index }}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div id="truck">🚚</div>
+
+  <!-- Report Section -->
+  <div style="margin-top: 2rem;">
+    <button onclick="downloadReport()" style="padding: 1rem 2rem; background: #3aafa9; color: white; border: none; border-radius: 8px; font-size: 1rem;">
+      📝 Download Daily Report
+    </button>
+
+    <!-- Skeleton loader -->
+    <div id="reportSkeleton" style="display: none; margin-top: 1rem;">
+      <div class="skeleton" style="width: 100%; max-width: 500px;"></div>
+      <div class="skeleton" style="width: 100%; max-width: 500px; margin-top: 10px;"></div>
+    </div>
+
+    <!-- Report Preview -->
+    <div id="reportBox" style="margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ccc; display: none;">
+      <h3>📄 Report Preview</h3>
+      <pre id="reportText" style="white-space: pre-wrap;"></pre>
+    </div>
+  </div>
+
+  <!-- Floating Dialogue -->
+  <div class="dialogue" id="dialogueBox">
+    <p id="dialogueText"></p>
+  </div>
+
+  <script>
+    const stops = document.querySelectorAll('.stop');
+    const truck = document.getElementById('truck');
+    const dialog = document.getElementById('dialogueBox');
+    const dialogText = document.getElementById('dialogueText');
+    const routeData = {{ route_bins | tojson }};
+
+    let truckCapacity = {{ capacity }};
+    let usedCapacity = 0;
+    let currentStop = 0;
+
+    function moveTruck() {
+      if (currentStop >= stops.length || usedCapacity >= truckCapacity) {
+        dialogText.innerText = "🛑 Truck is full. Stopping route.";
+        dialog.style.display = "block";
+        positionDialog();
+        return;
+      }
+
+      const stop = stops[currentStop];
+      const name = stop.dataset.name;
+      const waste = stop.dataset.waste;
+      const urgency = stop.dataset.urgency;
+      const volume = parseFloat(stop.dataset.volume);
+
+      const stopRect = stop.getBoundingClientRect();
+      const trackRect = document.getElementById('route').getBoundingClientRect();
+      const offset = stopRect.left - trackRect.left;
+
+      truck.style.marginLeft = `${offset}px`;
+
+      setTimeout(() => {
+        usedCapacity += volume;
+
+        dialogText.innerHTML = `
+          <strong>📍 ${name}</strong><br>
+          Type: ${waste}<br>
+          Urgency: ${urgency}<br>
+          Collected: ✅ ${volume}L<br>
+          Truck Load: ${usedCapacity} / ${truckCapacity} L
+        `;
+        dialog.style.display = "block";
+        positionDialog();
+
+        currentStop++;
+        setTimeout(() => {
+          dialog.style.display = "none";
+          moveTruck();
+        }, 2500);
+      }, 1000);
+    }
+
+    function positionDialog() {
+      const truckRect = truck.getBoundingClientRect();
+      dialog.style.left = `${truckRect.left + 40}px`;
+      dialog.style.top = `${truckRect.top - 80}px`;
+    }
+
+    function downloadReport() {
+      document.getElementById("reportSkeleton").style.display = "block";
+      document.getElementById("reportBox").style.display = "none";
+
+      fetch("/api/generate_report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bins: routeData })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("reportSkeleton").style.display = "none";
+
+        if (data.report) {
+          document.getElementById("reportText").innerText = data.report;
+          document.getElementById("reportBox").style.display = "block";
+
+          const blob = new Blob([data.report], { type: "text/plain" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = "daily_report.txt";
+          link.click();
+        } else {
+          alert("⚠️ Could not generate report.");
+        }
+      });
+    }
+
+    setTimeout(() => {
+      moveTruck();
+    }, 1000);
+  </script>
+
+</body>
+</html>

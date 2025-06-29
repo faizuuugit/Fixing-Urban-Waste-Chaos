@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CleanRoute AI – Animated Demo 2</title>
+  <style>
+    body { font-family: sans-serif; background: #eef2f3; padding: 2rem; }
+    h1 { color: #2b7a78; }
+    .bin-list, .track { display: flex; gap: 1rem; margin: 2rem 0; flex-wrap: wrap; }
+    .bin-box {
+      background: white; border: 1px solid #ccc;
+      padding: 1rem; width: 180px; border-radius: 8px;
+    }
+    .stop {
+      padding: 1rem; border-radius: 50%;
+      background: #3aafa9; color: white; font-weight: bold;
+      text-align: center; min-width: 50px;
+    }
+    #truck {
+      font-size: 2rem; margin-top: 1rem;
+      transition: margin-left 0.6s ease;
+    }
+    .dialogue {
+      background: white; border: 1px solid #aaa;
+      padding: 1rem; margin-top: 1rem;
+      display: none; position: absolute;
+      left: 60%; top: 200px; width: 300px;
+      border-radius: 10px;
+    }
+    .skeleton {
+      background: linear-gradient(-90deg, #e2e1e1 0%, #adadad 50%, #646464 100%);
+      background-size: 400% 400%;
+      animation: shimmer 1.2s ease-in-out infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚛 CleanRoute AI – Live Demo</h1>
+  <h3>Truck Capacity: {{ capacity }}L</h3>
+
+  <!-- Skeleton Wrapper (Initially visible) -->
+  <div id="skeletonWrapper">
+    <h2> 🇦🇮🛠️Loading Bins...</h2>
+    <div class="bin-list">
+      <div class="skeleton" style="width:180px; height:120px;"></div>
+      <div class="skeleton" style="width:180px; height:120px;"></div>
+      <div class="skeleton" style="width:180px; height:120px;"></div>
+    </div>
+
+    <h2>🇦🇮🛠️Calculating Route...</h2>
+    <div class="track">
+      <div class="skeleton" style="width: 50px; height: 50px; border-radius: 50%;"></div>
+      <div class="skeleton" style="width: 50px; height: 50px; border-radius: 50%;"></div>
+      <div class="skeleton" style="width: 50px; height: 50px; border-radius: 50%;"></div>
+    </div>
+  </div>
+
+  <!-- Actual Content (hidden initially) -->
+  <div id="contentWrapper" style="display: none;">
+    <h2>🗂️ All Bins (Simulated)</h2>
+    <div class="bin-list" id="bins"></div>
+
+    <h2>🗺️ AI-Planned Route</h2>
+    <div class="track" id="route"></div>
+
+    <div id="truck">🚚</div>
+
+    <div class="dialogue" id="dialogueBox">
+      <p id="dialogueText"></p>
+    </div>
+
+    <!-- Report Section -->
+    <div style="margin-top: 2rem;">
+      <button id="generateReportBtn" style="display: none; padding: 1rem 2rem; background: #3aafa9; color: white; border: none; border-radius: 8px; font-size: 1rem;">
+        📝 Download Daily Report
+      </button>
+
+      <div id="reportSkeleton" style="display: none; margin-top: 1rem;">
+        <div class="skeleton" style="width: 100%; max-width: 600px; height: 80px;"></div>
+        <div class="skeleton" style="width: 100%; max-width: 600px; height: 80px; margin-top: 10px;"></div>
+      </div>
+
+      <div id="reportBox" style="margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ccc; display: none;">
+        <h3>📄 Daily Summary Report</h3>
+        <pre id="reportText" style="white-space: pre-wrap;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let truckCapacity = {{ capacity }};
+    let usedCapacity = 0;
+    let currentStop = 0;
+    let route = [];
+
+    const binsContainer = document.getElementById('bins');
+    const routeContainer = document.getElementById('route');
+    const truck = document.getElementById('truck');
+    const dialog = document.getElementById('dialogueBox');
+    const dialogText = document.getElementById('dialogueText');
+
+    fetch("/api/demo2_data")
+      .then(res => res.json())
+      .then(data => {
+        const allBins = data.all_bins;
+        route = data.route_bins;
+        const routeOrder = data.route_order;
+
+        allBins.forEach(bin => {
+          const box = document.createElement("div");
+          box.className = "bin-box";
+          box.innerHTML = `
+            <strong>${bin["Location Name"]}</strong><br>
+            Type: ${bin["Waste Type"]}<br>
+            Fill: ${bin["Fill Level"]}% of ${bin["Bin Capacity"]}L<br>
+            Urgency: ${bin["Urgency Score"]}<br>
+            Volume: ${bin["Volume"]}L
+          `;
+          binsContainer.appendChild(box);
+        });
+
+        routeOrder.forEach((bin_id, index) => {
+          const bin = route.find(b => b["Bin ID"] === bin_id);
+          const stop = document.createElement("div");
+          stop.className = "stop";
+          stop.setAttribute("data-name", bin["Location Name"]);
+          stop.setAttribute("data-waste", bin["Waste Type"]);
+          stop.setAttribute("data-urgency", bin["Urgency Score"]);
+          stop.setAttribute("data-volume", bin["Volume"]);
+          stop.innerText = index + 1;
+          routeContainer.appendChild(stop);
+        });
+
+        // Switch from skeleton to content
+        setTimeout(() => {
+          document.getElementById("skeletonWrapper").style.display = "none";
+          document.getElementById("contentWrapper").style.display = "block";
+          moveTruck();
+        }, 1000);
+      });
+
+    function moveTruck() {
+      const stops = document.querySelectorAll('.stop');
+      if (currentStop >= stops.length || usedCapacity >= truckCapacity) {
+        dialogText.innerText = "🛑 Truck is full. Stopping route.";
+        dialog.style.display = "block";
+        positionDialog();
+        document.getElementById("generateReportBtn").style.display = "inline-block";
+        return;
+      }
+
+      const stop = stops[currentStop];
+      const name = stop.dataset.name;
+      const waste = stop.dataset.waste;
+      const urgency = stop.dataset.urgency;
+      const volume = parseFloat(stop.dataset.volume);
+
+      const stopRect = stop.getBoundingClientRect();
+      const trackRect = routeContainer.getBoundingClientRect();
+      const offset = stopRect.left - trackRect.left;
+
+      truck.style.marginLeft = `${offset}px`;
+
+      setTimeout(() => {
+        usedCapacity += volume;
+
+        dialogText.innerHTML = `
+          <strong>📍 ${name}</strong><br>
+          Type: ${waste}<br>
+          Urgency: ${urgency}<br>
+          Collected: ✅ ${volume}L<br>
+          Truck Load: ${usedCapacity} / ${truckCapacity} L
+        `;
+        dialog.style.display = "block";
+        positionDialog();
+
+        currentStop++;
+        setTimeout(() => {
+          dialog.style.display = "none";
+          moveTruck();
+        }, 2500);
+      }, 1000);
+    }
+
+    function positionDialog() {
+      const truckRect = truck.getBoundingClientRect();
+      dialog.style.left = `${truckRect.left + 40}px`;
+      dialog.style.top = `${truckRect.top - 80}px`;
+    }
+
+    document.getElementById("generateReportBtn").addEventListener("click", () => {
+      document.getElementById("reportSkeleton").style.display = "block";
+      document.getElementById("reportBox").style.display = "none";
+
+      fetch("/api/generate_report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bins: route })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("reportSkeleton").style.display = "none";
+
+        if (data.report) {
+          document.getElementById("reportText").innerText = data.report;
+          document.getElementById("reportBox").style.display = "block";
+
+          const blob = new Blob([data.report], { type: "text/plain" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = "daily_report.txt";
+          link.click();
+        } else {
+          alert("⚠️ Could not generate report.");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
