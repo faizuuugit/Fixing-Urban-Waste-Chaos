@@ -1,5 +1,5 @@
-City waste collection is inefficient. Vehicles fill up before completing routes. Waste remains uncollected for days (overflowing or hazardous bins are missed.). Unnecessary  trips are made to empty bins — wasting fuel, time., poor public hygiene, and inefficient operations. Our solution  solves this using IBM Granite models, our system analyzes each bin’s fill level, waste type, and last pickup time to assign an urgency score. It then plans the smartest route to collect only the highest-priority bins, optimizing truck capacity and reducing unnecessary trips. Finally, it auto-generates a daily report summarizing the route and waste collected. 
-
+# City waste collection is inefficient. Vehicles fill up before completing routes. Waste remains uncollected for days (overflowing or hazardous bins are missed.). Unnecessary  trips are made to empty bins — wasting fuel, time., poor public hygiene, and inefficient operations. Our solution  solves this using IBM Granite models, our system analyzes each bin’s fill level, waste type, and last pickup time to assign an urgency score. It then plans the smartest route to collect only the highest-priority bins, optimizing truck capacity and reducing unnecessary trips. Finally, it auto-generates a daily report summarizing the route and waste collected. 
+---
 
 🧠 About the Project:
 We developed AI-powered waste collection system that uses IBM Granite models to make municipal garbage pickup smarter, safer, and more efficient.
